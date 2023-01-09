@@ -1,0 +1,787 @@
+------------------------------------------------------------------cs-------------------------------------------------------------------
+public partial class MAG_ERROR_FCL_GateOut_Changes : System.Web.UI.Page
+{
+    BAL_MAG_ERROR Error = new BAL_MAG_ERROR();
+    Message msg = new Message();
+    
+    void Page_PreRender(object obj, EventArgs e)
+    {
+        ViewState["update"] = Session["update"];
+    }
+
+    protected void validateSession()
+    {
+        if (Convert.ToString(Session["LogIn_Code"]) == "")
+        {
+            ClientScript.RegisterStartupScript(this.GetType(), "login", "<script type='text/javascript'>alert('Sorry Your Login Session Is Expired !!! Please Re-Login To Continue');top.window.close();</script>");
+            return;
+        }
+    }
+
+    protected void Page_Load(object sender, EventArgs e)
+    {
+        Label lblMesage = (Label)this.Master.FindControl("lblHeader");
+        lblMesage.Text = "FCL Gate Out Date Change";
+        validateSession();
+        if (!IsPostBack)
+        {
+            Session["update"] = Server.UrlEncode(System.DateTime.Now.ToString());           
+            tblData.Visible = false;
+            tblWorkOrder.Visible = false;
+        }
+    }
+
+    protected void btnFill_Click(object sender, ImageClickEventArgs e)
+    {
+        ErrorContainer.Visible = false;
+        DataTable dt = Error.Select_FCL_GateOut_Update_IGM_Item_Pass(txtIGMNo.Text.Trim(), txtITemNo.Text.Trim(), 0,0);
+      
+        ddlContainerNo.ClearSelection();
+        ddlContainerNo.Items.Clear();
+        if (dt.Rows.Count > 0)
+        {
+            ddlContainerNo.DataSource = dt;
+            ddlContainerNo.DataTextField = "CONT_NO";
+            ddlContainerNo.DataValueField = "CONT_REF_ID";
+            ddlContainerNo.DataBind();
+            ddlContainerNo.Items.Insert(0, new ListItem("Select Container No", "0"));
+            ddlContainerNo.Items.Insert(1, new ListItem("All Container", "1"));
+        }
+        else
+        {
+            ddlContainerNo.DataSource = null;
+            ddlContainerNo.DataBind();
+            ddlContainerNo.Items.Insert(0, new ListItem("Select Container No", "0"));
+        }
+        tblData.Visible = false;
+        tblWorkOrder.Visible = false;
+    }   
+
+    protected void btnShow_Click(object sender, EventArgs e)
+    {
+        ErrorContainer.Visible=false;
+        try
+        {
+            DataTable dt = Error.Select_FCL_GateOut_Update_IGM_Item_Pass(txtIGMNo.Text.Trim(), txtITemNo.Text.Trim(), Convert.ToInt32(ddlContainerNo.SelectedValue),Convert.ToInt32("0"));
+            if (dt.Rows.Count > 0)
+            {
+                gvWorkOrderList.DataSource = dt;
+                gvWorkOrderList.DataBind();
+            }
+            else
+            {
+                gvWorkOrderList.DataSource = null;
+                gvWorkOrderList.DataBind();
+            }
+            
+            tblWorkOrder.Visible = true;
+            tblData.Visible = false;       
+        }
+        catch(Exception ex)
+        {
+         ErrorContainer.Visible=true;
+         msg.ShowMessage("Error : " + ex.Message, null, ErrorContainer, MyMessage, null);       
+        }
+    }
+
+    protected void btnUpdate_Click(object sender, EventArgs e)
+    {
+        validateSession();
+        ErrorContainer.Visible = true;       
+        try
+        {
+            if (Page.IsValid)
+            {
+                if (Convert.ToString(Session["LogIn_Code"].ToString()) != "" && Convert.ToString(Session["EmpName"].ToString()) != "")
+                {
+                    if (Session["update"].ToString() == ViewState["update"].ToString())
+                    {
+                        int cnt = 0;
+                        DataTable dt = new DataTable();
+                        DataRow dr = null;
+                        dt.Columns.Add("WORK_ORDER_NO", typeof(int));
+                        dt.Columns.Add("TruckNo", typeof(string));
+                        dt.Columns.Add("Sys_GateOut_Date", typeof(DateTime));
+                        dt.Columns.Add("Act_Gateout_Date", typeof(DateTime));
+                        dt.Columns.Add("IGM_NO", typeof(string));
+                        dt.Columns.Add("ITEM_NO", typeof(string));
+
+
+                        DataTable dt_1 = new DataTable();
+                        DataRow dr_1 = null;
+                        dt_1.Columns.Add("WORK_ORDER_NO", typeof(int));
+                        dt_1.Columns.Add("TruckNo", typeof(string));
+                        dt_1.Columns.Add("Act_Gateout_Date", typeof(DateTime));
+
+                        foreach (GridViewRow gvr in GVList.Rows)
+                        {
+                            Label lblWORK_ORDER_NO = (Label)gvr.FindControl("lblWORK_ORDER_NO");
+                            Label lblTruckNo = (Label)gvr.FindControl("lblTruckNo");
+                            Label lblPackage = (Label)gvr.FindControl("lblPackage");
+                            Label lblSystemGateOutDateTime = (Label)gvr.FindControl("lblSystemGateOutDateTime");
+                            TextBox txtActGateoutDate = (TextBox)gvr.FindControl("txtActGateoutDate");
+                            TextBox txtActGateoutTime = (TextBox)gvr.FindControl("txtActGateoutTime");
+                            CheckBox chkSelect = (CheckBox)gvr.FindControl("chkSelect");
+                            
+                            if (chkSelect.Checked == true && txtActGateoutDate.Text.Trim() != string.Empty && txtActGateoutTime.Text.Trim() != string.Empty)
+                            {
+                                string[] dateStr1 = txtActGateoutDate.Text.Split('/');
+                                string[] timeStr1 = txtActGateoutTime.Text.Split(':');
+                                DateTime _actDateTime = new DateTime(Convert.ToInt32(dateStr1[2]), Convert.ToInt32(dateStr1[1]), Convert.ToInt32(dateStr1[0]), Convert.ToInt32(timeStr1[0]), Convert.ToInt32(timeStr1[1]), Convert.ToInt32("00"));
+
+                                string[] dateStr2 = lblSystemGateOutDateTime.Text.Substring(0, 10).Split('/');
+                                string[] timeStr2 = lblSystemGateOutDateTime.Text.Substring(12, 8).Split(':');
+                                DateTime _sysDateTime = new DateTime(Convert.ToInt32(dateStr2[2]), Convert.ToInt32(dateStr2[1]), Convert.ToInt32(dateStr2[0]), Convert.ToInt32(timeStr2[0]), Convert.ToInt32(timeStr2[1]), Convert.ToInt32(timeStr2[2]));
+                                cnt = cnt + 1;
+                                dr = dt.NewRow();
+                                dr["WORK_ORDER_NO"] = Convert.ToInt32(lblWORK_ORDER_NO.Text.Trim());
+                                dr["TruckNo"] = Convert.ToString(lblTruckNo.Text.Trim());
+                                dr["Sys_GateOut_Date"] = _sysDateTime;
+                                dr["Act_Gateout_Date"] = _actDateTime;
+                                dr["IGM_NO"] = txtIGMNo.Text.Trim();
+                                dr["ITEM_NO"] = txtITemNo.Text.Trim();
+                                dt.Rows.Add(dr);
+
+
+                                dr_1 = dt_1.NewRow();
+                                dr_1["WORK_ORDER_NO"] = Convert.ToInt32(lblWORK_ORDER_NO.Text.Trim());
+                                dr_1["TruckNo"] = Convert.ToString(lblTruckNo.Text.Trim());
+                                dr_1["Act_Gateout_Date"] = _actDateTime;
+                                dt_1.Rows.Add(dr_1);
+
+                            }
+                        }
+
+                        int result = 0;
+                        if (dt.Rows.Count > 0 && dt_1.Rows.Count > 0)
+                        {                           
+                           // DateTime minimunDate = dt.Rows.OfType<DataRow>().Select(k => Convert.ToDateTime(k["Act_Gateout_Date"])).Min();
+
+                            result = Error.Insert_MAG_FCL_GateOut_Update_Log(dt, dt_1);                            
+
+                            if (result > 0)
+                            {
+                                msg.ShowMessage("Record updated successfully", null, ErrorContainer, MyMessage, "Success");
+                                Session["update"] = Server.UrlEncode(System.DateTime.Now.ToString());
+                                //reset();
+                                tblData.Visible = false;
+                            }
+                            else
+                            {
+                                msg.ShowMessage("Record Updation Failed..!! Try Again.", null, ErrorContainer, MyMessage, "Warning");
+                            }
+                        }
+                        else
+                        {
+                            msg.ShowMessage("Please enter atleast one record.", null, ErrorContainer, MyMessage, "Warning");
+                        }
+                    }
+                }
+            }
+        } 
+        catch (Exception ex)
+        {
+            ErrorContainer.Visible = true;
+            msg.ShowMessage("Error : " + ex.Message, null, ErrorContainer, MyMessage, null);
+            tblData.Visible = false;
+        }
+    }
+
+    protected void chkSelect_CheckedChanged(object sender, EventArgs e)
+    {
+        ErrorContainer.Visible = false;    
+        CheckBox chkSelect = sender as CheckBox;
+        GridViewRow gvr = (GridViewRow)chkSelect.NamingContainer;
+
+        foreach (GridViewRow gvr1 in gvWorkOrderList.Rows)
+        {
+            CheckBox chkSelect_ = (CheckBox)gvr1.FindControl("chkSelect");
+            if (chkSelect_.Checked)
+            {
+                chkSelect_.Checked = false;
+                gvr1.BackColor = System.Drawing.Color.White;
+            }
+        }       
+
+        chkSelect.Checked = true;
+
+        if (chkSelect.Checked)
+        {
+            gvr.BackColor = System.Drawing.Color.LightPink;
+
+            tblData.Visible = true;
+            int i = gvr.RowIndex;
+            Label lblWORK_ORDER_NO = (Label)gvWorkOrderList.Rows[i].FindControl("lblWORK_ORDER_NO");
+            string lblWORK_ORDER_NO1 = lblWORK_ORDER_NO.Text;
+            DataTable dt = Error.Select_FCL_GateOut_Update_IGM_Item_Pass("", "", 0, Convert.ToInt32(lblWORK_ORDER_NO1));
+            if (dt.Rows.Count > 0)
+            {
+                GVList.DataSource = dt;
+                GVList.DataBind();
+            }
+            else
+            {
+                GVList.DataSource = dt;
+                GVList.DataBind();
+            }
+        }
+        else 
+        {
+            ErrorContainer.Visible = true;
+            GVList.DataSource = null;
+            GVList.DataBind();
+            tblData.Visible = false;
+        }      
+    }
+
+    public void reset()
+    {
+        txtIGMNo.ReadOnly = false;
+        txtITemNo.ReadOnly = false;
+        txtITemNo.Text = string.Empty;
+        txtIGMNo.Text = string.Empty;
+        tblData.Visible = false;      
+    }    
+}
+
+
+-------------------------------------------------------------------------------------axpx--------------------------------------------------------------
+<asp:Content ID="Content1" ContentPlaceHolderID="head" runat="Server">
+    <link href="../css/FA_1.css" rel="stylesheet" type="text/css" />
+    <script src="../Jquery/jquery-1.10.2.min.js" type="text/javascript"></script>
+    <script language="javascript" type="text/javascript">
+        function calendarShown(sender, args) {
+            sender._popupBehavior._element.style.zIndex = 99999999;
+        }
+
+        $(document).ready(function () {
+            // $("#<%=tblData.ClientID%>").hide();
+            $("#<%=btnUpdate.ClientID%>").hide();
+
+            $("#<%=txtIGMNo.ClientID%>").blur(fillDropdown);
+            $("#<%=txtITemNo.ClientID%>").blur(fillDropdown);
+            $("#<%=GVList.ClientID%> input[type='checkbox']").click(function () {
+                $("#<%=tblData.ClientID%>").show();
+                if ($(this).is(":checked")) {
+                    $(this).closest('tr').find("input[type=text][id*=txtActGateoutDate]").prop('disabled', false);
+                    $(this).closest('tr').find("input[type=text][id*=txtActGateoutTime]").prop('disabled', false);
+                    ValidatorEnable($(this).closest("tr").find("[id*=rfvtxtActGateoutDate]")[0], true);
+                    ValidatorEnable($(this).closest("tr").find("[id*=revtxtActGateoutDate]")[0], true);
+                    ValidatorEnable($(this).closest("tr").find("[id*=rfvtxtActGateoutTime]")[0], true);
+                    ValidatorEnable($(this).closest("tr").find("[id*=revTime]")[0], true);
+                    ValidatorEnable($(this).closest("tr").find("[id*=cvActGateoutDate]")[0], true);
+                    
+                }
+                else {
+                    $(this).closest('tr').find("input[type=text][id*=txtActGateoutDate]").prop('disabled', true);
+                    $(this).closest('tr').find("input[type=text][id*=txtActGateoutTime]").prop('disabled', true);
+                    $(this).closest('tr').find("input[type=text][id*=txtActGateoutDate]").val('');
+                    $(this).closest('tr').find("input[type=text][id*=txtActGateoutTime]").val('');
+                    ValidatorEnable($(this).closest("tr").find("[id*=rfvtxtActGateoutDate]")[0], false);
+                    ValidatorEnable($(this).closest("tr").find("[id*=revtxtActGateoutDate]")[0], false);
+                    ValidatorEnable($(this).closest("tr").find("[id*=rfvtxtActGateoutTime]")[0], false);
+                    ValidatorEnable($(this).closest("tr").find("[id*=revTime]")[0], false);
+                    ValidatorEnable($(this).closest("tr").find("[id*=cvActGateoutDate]")[0], false);
+                }
+                var count = 0;
+                $("#<%=GVList.ClientID%> input[type='checkbox']").each(function () {
+                    var checked = $(this).closest('tr').find("[id*=chkSelect]").is(':checked');
+                    if (checked) {
+                        count = count + 1;
+                        ValidatorEnable($(this).closest("tr").find("[id*=rfvtxtActGateoutDate]")[0], true);
+                        ValidatorEnable($(this).closest("tr").find("[id*=revtxtActGateoutDate]")[0], true);
+                        ValidatorEnable($(this).closest("tr").find("[id*=rfvtxtActGateoutTime]")[0], true);
+                        ValidatorEnable($(this).closest("tr").find("[id*=revTime]")[0], true);
+                        ValidatorEnable($(this).closest("tr").find("[id*=cvActGateoutDate]")[0], true);
+                    } else {
+
+                        ValidatorEnable($(this).closest("tr").find("[id*=rfvtxtActGateoutDate]")[0], false);
+                        ValidatorEnable($(this).closest("tr").find("[id*=revtxtActGateoutDate]")[0], false);
+                        ValidatorEnable($(this).closest("tr").find("[id*=rfvtxtActGateoutTime]")[0], false);
+                        ValidatorEnable($(this).closest("tr").find("[id*=revTime]")[0], false);
+                        ValidatorEnable($(this).closest("tr").find("[id*=cvActGateoutDate]")[0], false);
+                    }
+                });
+                if (parseInt(count) > parseInt(0)) {
+                    $("#<%=btnUpdate.ClientID%>").show();
+                } else {
+                    $("#<%=btnUpdate.ClientID%>").hide();
+                }
+            });
+
+            $("#<%=btnShow.ClientID%>").click(function () {
+                var ContRefID = $("#<%=ddlContainerNo.ClientID%> option:selected").val();
+                if (ContRefID != '0') {
+                    $("#<%=tblWorkOrder.ClientID%>").show();
+                } else {
+                    $("#<%=tblWorkOrder.ClientID%>").hide();
+                }
+                $("#<%=tblData.ClientID%>").hide();
+                $("#<%=btnUpdate.ClientID%>").hide();
+            });
+
+
+            $("#<%=ddlContainerNo.ClientID %>").change(function () {
+                $("#<%=tblWorkOrder.ClientID%>").hide();
+                $("#<%=tblData.ClientID %>").hide();
+                $("#<%=btnUpdate.ClientID %>").hide();
+            });
+
+
+            function fillDropdown() {
+                $("#<%=ddlContainerNo.ClientID %>").empty();
+                var newItemOption = $('<option value="0">Select Container No </option>');
+                $("#<%=ddlContainerNo.ClientID %>").append(newItemOption);
+                $("#<%=tblData.ClientID%>").hide();
+                $("#<%=tblWorkOrder.ClientID%>").hide();
+            }
+
+
+            $('#<%=btnUpdate.ClientID %>').on('click', function () {
+                var count = 0;
+                $("#<%=GVList.ClientID%> input[type='checkbox']").each(function () {
+                    var checked = $(this).closest('tr').find("[id*=chkSelect]").is(':checked');
+                    if (checked) {
+                        var a = $(this).closest('tr').find("input[type=text][id*=txtActGateoutDate]").val();
+                        var b = $(this).closest('tr').find("input[type=text][id*=txtActGateoutTime]").val();
+                        if (a == '' && b == '') {
+                            count = count + 1;
+                        }
+                    }
+                });
+                if (parseInt(count)>0) {
+                    ShowProgress();
+                }
+            });
+
+            function ShowProgress() {
+                setTimeout(function () {
+                    var modal = $('<div />');
+                    modal.addClass("modal");
+                    $('body').append(modal);
+                    var loading = $(".loading");
+                    loading.show();
+                    var top = Math.max($(window).height() / 2 - loading[0].offsetHeight / 2, 0);
+                    var left = Math.max($(window).width() / 2 - loading[0].offsetWidth / 2, 0);
+                    loading.css({ top: top, left: left });
+                }, 200);
+            }
+
+        });
+    </script>
+    
+    <script language="javascript" type="text/javascript">
+
+        function pad(str, max) {
+            str = str.toString();
+            return str.length < max ? pad("0" + str, max) : str;
+        }
+
+        function CheckDatesMinLessMax(source, arg) {
+            var prevSource = "ContentPlaceHolder1_GVList_lblSystemGateOutDateTime_" + source.controltovalidate.split("_")[3];
+            var chkSelect = "ContentPlaceHolder1_GVList_chkSelect_" + source.controltovalidate.split("_")[3];
+            if (document.getElementById(chkSelect) != null) {
+                var checked = document.getElementById(chkSelect).checked;
+                if (checked) {                    
+                    var SysDate = document.getElementById(prevSource);
+                    var SelectedDate = document.getElementById(source.controltovalidate).value;
+                    if (SelectedDate != '') {
+                        var actDate = SysDate.innerHTML.split('/');
+                        var day1 = actDate[0];
+                        var month1 = actDate[1];
+                        var year1 = actDate[2].split(' ')[0];
+                        var actdate_ = month1 + '/' + day1 + '/' + year1;
+
+                        var actualDate = year1 + '' + pad(month1, 2) + '' + pad(day1, 2);
+
+                        var selectedDate = SelectedDate.split('/');
+                        var day2 = selectedDate[0];
+                        var month2 = selectedDate[1];
+                        var year2 = selectedDate[2];
+                        var selectedDate_ = month2 + '/' + day2 + '/' + year2;
+                        var selDate = year2 + '' + pad(month2, 2) + '' + pad(day2, 2);
+
+                        var dateDiff = parseInt(actualDate) - parseInt(selDate);
+
+                        var a = new Date(actdate_);
+                        var b = new Date(selectedDate_);                        
+                        var timeDiff = (a.getTime() - b.getTime());
+                        var diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24)); 
+
+                        if (diffDays <= 30) {
+                            if (diffDays < 0) {
+                                source.errormessage = 'Enter date is not valid.';
+                                alert("Enter date is not valid.");
+                                document.getElementById(source.controltovalidate).value = null;
+                                arg.IsValid = false;
+                            }
+                            else {
+                                arg.IsValid = true;
+                            }
+                        } else {
+                            source.errormessage = 'Enter date is not valid.';
+                            alert("Enter date is not valid.");
+                            document.getElementById(source.controltovalidate).value = null;
+                            arg.IsValid = false;
+                        }
+                    }
+                }
+                else {
+                    arg.IsValid = true;
+                 }
+            }
+            else {
+                arg.IsValid = true;
+            }
+        }
+    </script>
+
+       <style type="text/css">
+        .modal
+        {
+            position: fixed;
+            top: 0;
+            left: 0;
+            background-color: black;
+            z-index: 99;
+            opacity: 0.8;
+            filter: alpha(opacity=80);
+            -moz-opacity: 0.8;
+            min-height: 100%;
+            width: 100%;
+        }
+        .loading
+        {
+            font-family: Arial;
+            font-size: 10pt;
+            border: 5px solid #67CFF5;
+            width: 200px;
+            height: 100px;
+            display: none;
+            position: fixed;
+            background-color: White;
+            z-index: 999;
+        }
+    </style>
+</asp:Content>
+<asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" runat="Server">
+ <div class="loading" style="text-align: center;">
+        <div style="font-size: 18px; font-weight: bold; position: relative; top: 30px;">
+            <asp:Label ID="lblWait1" runat="server" ForeColor="Red" Text="Please wait !! Record is being submitted..." />
+        </div>
+        <img id="img1" src="../images/progressbar.gif" style="height: 50px;" />
+    </div>
+    <table width="100%">
+        <tr>
+            <td>
+                <asp:Panel ID="ErrorContainer" runat="server" CssClass="EmptyError">
+                    <asp:Label ID="MyMessage" runat="server" Font-Size="10pt"></asp:Label>
+                </asp:Panel>
+            </td>
+        </tr>
+    </table>
+    <table width="100%" style="border-collapse: collapse;">
+        <tr>
+            <td width="10%" class="Left">
+                IGM No
+            </td>
+            <td width="20%" valign="middle">
+                <asp:TextBox ID="txtIGMNo" runat="server" CssClass="txtNormal" autocomplete="off" MaxLength="10"></asp:TextBox>
+                <asp:RequiredFieldValidator ID="rfvtxtIGMNo" runat="server" ControlToValidate="txtIGMNo"
+                    Display="Dynamic" ErrorMessage="Enter IGM No" ValidationGroup="fill">*</asp:RequiredFieldValidator>
+                <asp:RequiredFieldValidator ID="rfvShowtxtIGMNo" runat="server" ControlToValidate="txtIGMNo"
+                    ErrorMessage="Enter IGM No" ValidationGroup="show" Display="Dynamic">*</asp:RequiredFieldValidator>
+            </td>
+            <td width="10%" class="Left">
+                Item No
+            </td>
+            <td width="20%" valign="middle">
+                <asp:TextBox ID="txtITemNo" runat="server" CssClass="txtNormal" autocomplete="off" MaxLength="15"></asp:TextBox>
+                <asp:RequiredFieldValidator ID="rfvtxtITemNo" runat="server" ControlToValidate="txtITemNo"
+                    Display="Dynamic" ErrorMessage="Enter Item No" ValidationGroup="fill">*</asp:RequiredFieldValidator>
+                <asp:RequiredFieldValidator ID="rfvShowtxtITemNo" runat="server" ControlToValidate="txtITemNo"
+                    ErrorMessage="Enter Item No" ValidationGroup="show" Display="Dynamic">*</asp:RequiredFieldValidator>
+                <div style="display: inline; position: relative; bottom: -0.5em; right: .2em">
+                    <asp:ImageButton ID="btnFill" runat="server" ToolTip="Click Here To Fill Container No"
+                        ValidationGroup="fill" ImageUrl="~/images/Right_Arrow.png" Height="25" Width="25"
+                        OnClick="btnFill_Click" />
+                    <asp:ValidationSummary ID="vsFill" runat="server" ValidationGroup="fill" ShowMessageBox="true"
+                        ShowSummary="false" />
+                </div>
+            </td>
+            <td class="Left" width="10%">
+                Container No
+            </td>
+            <td width="18%" valign="middle">
+                <asp:DropDownList ID="ddlContainerNo" runat="server" CssClass="ddlNormal">
+                    <asp:ListItem Text="Select Container No" Value="0" Selected="True"></asp:ListItem>
+                </asp:DropDownList>
+                <asp:RequiredFieldValidator ID="rfvddlContainerNo" runat="server" ControlToValidate="ddlContainerNo"
+                    Display="Dynamic" ValidationGroup="show" ErrorMessage="Select Container No" InitialValue="0">*</asp:RequiredFieldValidator>
+            </td>
+            <td width="7%" align="center">
+                <asp:Button ID="btnShow" runat="server" Text="Show" CssClass="btnsave" ValidationGroup="show"
+                    OnClick="btnShow_Click" />
+                <asp:ValidationSummary ID="vs1" runat="server" ValidationGroup="show" ShowMessageBox="true"
+                    ShowSummary="false" />
+            </td>
+        </tr>
+    </table>
+    <table width="100%" style="border-collapse: collapse;" id="tblWorkOrder" runat="server">
+        <tr>
+            <td class="con_header" width="25%">
+                List of Work Order
+            </td>
+            <td width="75%">
+                &nbsp;
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <div style="max-height: 300px; overflow: auto;">
+                    <asp:GridView ID="gvWorkOrderList" runat="server" AutoGenerateColumns="False" CellPadding="2"
+                        Width="100%" CellSpacing="2" EmptyDataText="Record Not Found" ShowFooter="false"
+                        CssClass="grid-view_1" EnableTheming="True">
+                        <HeaderStyle CssClass="header_1" />
+                        <RowStyle CssClass="normal_1" />
+                        <FooterStyle CssClass="header_1" />
+                        <AlternatingRowStyle CssClass="alternaterow" />
+                        <Columns>
+                            <asp:TemplateField HeaderText="Sr No">
+                                <ItemTemplate>
+                                    <%#Container.DataItemIndex+1 %>
+                                </ItemTemplate>
+                                <ItemStyle VerticalAlign="Middle" HorizontalAlign="Center" Width="5%" />
+                            </asp:TemplateField>
+                            <asp:TemplateField HeaderText="Work Order No">
+                                <ItemTemplate>
+                                    <asp:Label ID="lblWORK_ORDER_NO" runat="server" Text='<%#Eval("WORK_ORDER_NO") %>'></asp:Label>
+                                </ItemTemplate>
+                                <ItemStyle HorizontalAlign="Center" Width="15%" />
+                            </asp:TemplateField>
+                            <asp:TemplateField HeaderText="Ref No">
+                                <ItemTemplate>
+                                    <asp:Label ID="lblRefNo" runat="server" Text='<%#Eval("WORK_ORDER_REF_NO") %>'></asp:Label>
+                                </ItemTemplate>
+                                <ItemStyle HorizontalAlign="Center" Width="25%" />
+                            </asp:TemplateField>
+                            <asp:TemplateField HeaderText="Work Order Date & Time">
+                                <ItemTemplate>
+                                    <asp:Label ID="lblWorkOrderDateTime" runat="server" Text='<%#Eval("WORK_ORDER_DATE") %>'></asp:Label>
+                                </ItemTemplate>
+                                <ItemStyle HorizontalAlign="Center" Width="20%" />
+                            </asp:TemplateField>
+                            <asp:TemplateField HeaderText="System Pass No">
+                                <ItemTemplate>
+                                    <asp:Label ID="lblSysPassNo" runat="server" Text='<%#Eval("System_Pass_No") %>'></asp:Label>
+                                </ItemTemplate>
+                                <ItemStyle HorizontalAlign="Center" Width="20%" />
+                            </asp:TemplateField>
+                            <asp:TemplateField HeaderText="Select">
+                                <ItemTemplate>
+                                    <asp:CheckBox ID="chkSelect" runat="server" AutoPostBack="true" OnCheckedChanged="chkSelect_CheckedChanged" />                                   
+                                </ItemTemplate>
+                                <ItemStyle HorizontalAlign="Center" Width="5%" />
+                            </asp:TemplateField>
+                        </Columns>
+                    </asp:GridView>
+                    
+                </div>
+            </td>
+        </tr>
+    </table>
+    <table width="100%" style="border-collapse: collapse;" id="tblData" runat="server">
+        <tr>
+            <td class="con_header" width="25%">
+                List of FCL Details
+            </td>
+            <td width="75%">
+                &nbsp;
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <div style="max-height: 300px; overflow: auto;">
+                    <asp:GridView ID="GVList" runat="server" AutoGenerateColumns="False" CellPadding="2"
+                        Width="100%" CellSpacing="2" EmptyDataText="Record Not Found" ShowFooter="false"
+                        CssClass="grid-view_1" EnableTheming="True">
+                        <HeaderStyle CssClass="header_1" />
+                        <RowStyle CssClass="normal_1" />
+                        <FooterStyle CssClass="header_1" />
+                        <AlternatingRowStyle CssClass="alternaterow" />
+                        <Columns>
+                            <asp:TemplateField HeaderText="Sr No">
+                                <ItemTemplate>
+                                    <%#Container.DataItemIndex+1 %>
+                                    <asp:Label ID="lblWORK_ORDER_NO" runat="server" Text='<%#Eval("WORK_ORDER_NO") %>'
+                                        Style="display: none;"></asp:Label>
+                                </ItemTemplate>
+                                <ItemStyle VerticalAlign="Middle" HorizontalAlign="Center" Width="5%" />
+                            </asp:TemplateField>
+                            <asp:TemplateField HeaderText="Truck No">
+                                <ItemTemplate>
+                                    <asp:Label ID="lblTruckNo" runat="server" Text='<%#Eval("TRUCK_NO") %>'></asp:Label>
+                                </ItemTemplate>
+                                <ItemStyle HorizontalAlign="Center" Width="10%" />
+                            </asp:TemplateField>
+                            <asp:TemplateField HeaderText="Package">
+                                <ItemTemplate>
+                                    <asp:Label ID="lblPackage" runat="server" Text='<%#Eval("PACKAGES") %>'></asp:Label>
+                                </ItemTemplate>
+                                <ItemStyle HorizontalAlign="Center" Width="7%" />
+                            </asp:TemplateField>
+                            <asp:TemplateField HeaderText="System GateOut Date & Time">
+                                <ItemTemplate>
+                                    <asp:Label ID="lblSystemGateOutDateTime" runat="server" Text='<%#Eval("actual_gate_out_date") %>'></asp:Label>
+                                </ItemTemplate>
+                                <ItemStyle HorizontalAlign="Center" Width="16%" />
+                            </asp:TemplateField>
+                            <asp:TemplateField HeaderText="Actual GateOut Date & Time">
+                                <ItemTemplate>
+                                    <asp:TextBox ID="txtActGateoutDate" runat="server" CssClass="txtDate" MaxLength="10"
+                                        Text='<%#Eval("NEW_GATEOUT_DATE") %>' Enabled="false" Style="max-width: 17%;"
+                                        autocomplete="off"></asp:TextBox>
+                                    &nbsp;-&nbsp;<asp:TextBox ID="txtActGateoutTime" runat="server" CssClass="txtDate"
+                                        Text='<%#Eval("NEW_GATEOUT_TIME") %>' Enabled="false" MaxLength="8" Style="max-width: 12%;"></asp:TextBox>
+                                    <asp:RequiredFieldValidator ID="rfvtxtActGateoutDate" runat="server" ControlToValidate="txtActGateoutDate"
+                                        Display="Dynamic" ValidationGroup="save" ErrorMessage="Please Enter Actual Gate Out Date"  Enabled="false">*</asp:RequiredFieldValidator>
+                                    <asp:RequiredFieldValidator ID="rfvtxtActGateoutTime" runat="server" ControlToValidate="txtActGateoutTime"
+                                        Display="Dynamic" ValidationGroup="save" ErrorMessage="Please Enter Actual Gate Out Time"  Enabled="false">*</asp:RequiredFieldValidator>
+                                    <asp:RegularExpressionValidator ID="revtxtActGateoutDate" runat="server" ControlToValidate="txtActGateoutDate"
+                                        ErrorMessage="Enter Valid Date" SetFocusOnError="True" ToolTip="Enter Actual Date in (DD/MM/YYYY) Format."
+                                        ValidationExpression="^(0[1-9]|[12][0-9]|3[01])[- /.](0[1-9]|1[012])[- /.](19|20)\d\d$"
+                                        ValidationGroup="save">*</asp:RegularExpressionValidator>
+                                    <asp:RegularExpressionValidator ID="revTime" ValidationGroup="save" runat="server"
+                                        ValidationExpression="^(([0-1]?[0-9])|([2][0-3])):([0-5]?[0-9])(:([0-5]?[0-9]))?$"
+                                        ErrorMessage="Enter Time  in 24 hrs (HH:MM) Format eg. 23:59" ControlToValidate="txtActGateoutTime"
+                                        Display="Dynamic">*</asp:RegularExpressionValidator>
+                                    <asp:CustomValidator ID="cvActGateoutDate" runat="server" ErrorMessage="Date should be less than or equal to System GateOut Date"
+                                        ToolTip="Date should be less than or equal to System GateOut Date" ClientValidationFunction="CheckDatesMinLessMax"
+                                        Display="Dynamic" ValidationGroup="save" SetFocusOnError="True" ControlToValidate="txtActGateoutDate" Enabled="false">*</asp:CustomValidator>
+                                    <b>(Enter Date in "DD/MM/YYYY" & Time in "HH:MM" Format)</b>
+                                    <sgg:CalendarExtender ID="cetxtActGateoutDate" runat="server" TargetControlID="txtActGateoutDate"
+                                        OnClientShown="calendarShown" Format="dd/MM/yyyy" PopupPosition="BottomLeft">
+                                    </sgg:CalendarExtender>
+                                    <sgg:MaskedEditExtender ID="meetxtActGateoutDate" runat="server" Mask="99/99/9999"
+                                        Enabled="true" MaskType="Date" TargetControlID="txtActGateoutDate">
+                                    </sgg:MaskedEditExtender>
+                                    <sgg:MaskedEditExtender ID="meetxtActGateoutTime" runat="server" TargetControlID="txtActGateoutTime"
+                                        Enabled="true" AutoComplete="false" MaskType="Time" Mask="99:99">
+                                    </sgg:MaskedEditExtender>
+                                </ItemTemplate>
+                                <ItemStyle HorizontalAlign="Left" Width="42%" />
+                            </asp:TemplateField>
+                            <asp:TemplateField HeaderText="Select">
+                                <ItemTemplate>
+                                    <asp:CheckBox ID="chkSelect" runat="server" Visible='<%#bool.Parse(Eval("NEW_GATEOUT_DATE").ToString() == "" ? "True": "False") %>' />
+                                </ItemTemplate>
+                                <ItemStyle HorizontalAlign="Center" Width="5%" />
+                            </asp:TemplateField>
+                        </Columns>
+                    </asp:GridView>
+                </div>
+            </td>
+        </tr>
+        <tr>
+         <td colspan="2" align="center">&nbsp;</td>
+        </tr>
+        <tr>
+            <td colspan="2" align="center">
+                <asp:Button ID="btnUpdate" runat="server" CssClass="btnsave" Text="Update" ValidationGroup="save"
+                    OnClick="btnUpdate_Click" />
+                <asp:ValidationSummary ID="vsUpdate" runat="server" ShowMessageBox="true" ShowSummary="false"
+                    ValidationGroup="save" />
+                <asp:HiddenField ID="hdnAtualDate" runat="server" />
+            </td>
+        </tr>
+    </table>
+</asp:Content>
+---------------------------------------------------------------------------BAL_MAG_ERROR--------------------------------------------------------------------------------
+  public DataTable Select_FCL_GateOut_Update_IGM_Item_Pass(string IGM_NO, string ITEM_NO, int CONT_REF_ID, int WORK_ORDER_NO)
+    {
+        DAL_MAG_ERROR dme = new DAL_MAG_ERROR();
+        try
+        {
+            return dme.Select_FCL_GateOut_Update_IGM_Item_Pass(IGM_NO, ITEM_NO, CONT_REF_ID, WORK_ORDER_NO);
+        }
+        catch
+        {
+            throw;
+        }
+        finally
+        {
+            dme = null;
+        }
+    }
+
+    public int Insert_MAG_FCL_GateOut_Update_Log(DataTable dt, DataTable dt_1)
+    {
+        DAL_MAG_ERROR dme = new DAL_MAG_ERROR();
+        try
+        {
+            return dme.Insert_MAG_FCL_GateOut_Update_Log(dt, dt_1);
+        }
+        catch
+        {
+            throw;
+        }
+        finally
+        {
+            dme = null;
+        }
+    }
+
+    public DataTable Get_GateInDate_GatePassNo(int gatePassNo, string oprType, string contNo)
+    {
+        DAL_MAG_ERROR dme = new DAL_MAG_ERROR();
+        try
+        {
+            return dme.Get_GateInDate_GatePassNo(gatePassNo,oprType, contNo);
+        }
+        catch
+        {
+            throw;
+        }
+        finally
+        {
+            dme = null;
+        }
+    }
+    
+    
+    ----------------------------DAL_MAG_ERROR---------------------------------------------------------------------------
+    
+      public DataTable Select_FCL_GateOut_Update_IGM_Item_Pass(string IGM_NO, string ITEM_NO, int CONT_REF_ID, int WORK_ORDER_NO)
+    {
+        DataSet dSet = new DataSet();
+        try
+        {
+            SqlConnection conn = new SqlConnection(DBConnCFSCal);
+            SqlDataAdapter dAd = new SqlDataAdapter("usp_MAG_Select_FCL_GateOut_Update_IGM_Item_Pass", conn);
+            dAd.SelectCommand.CommandType = CommandType.StoredProcedure;
+
+            dAd.SelectCommand.Parameters.AddWithValue("@IGM_NO", IGM_NO);
+            dAd.SelectCommand.Parameters.AddWithValue("@ITEM_NO", ITEM_NO);
+            dAd.SelectCommand.Parameters.AddWithValue("@CONT_REF_ID", CONT_REF_ID);
+
+            if (WORK_ORDER_NO != 0)
+            {
+                dAd.SelectCommand.Parameters.AddWithValue("@WORK_ORDER_NO", WORK_ORDER_NO);
+            }
+            else 
+            {
+                dAd.SelectCommand.Parameters.AddWithValue("@WORK_ORDER_NO", DBNull.Value);
+            }
+
+            dAd.Fill(dSet, "tbl_FCL_GateOut_Dtl");
+            return dSet.Tables["tbl_FCL_GateOut_Dtl"];
+        }
+        catch
+        {
+            throw;
+        }
+        finally
+        {
+            dSet.Dispose();
+        }
+    }
